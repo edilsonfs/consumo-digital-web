@@ -5,6 +5,7 @@ const { carregarCaso } = require('../acesso');
 const repositorio = require('../casos-repositorio');
 const { emTransacao } = require('../db');
 const { ErroHttp, invalido, naoEncontrado } = require('../erros');
+const { verificarAnuncio } = require('../ia/anuncio');
 const { consultarDeepSeek } = require('../ia/deepseek');
 const { limitarRequisicoes } = require('../seguranca');
 const { esquemas, validar, lerId } = require('../validacao');
@@ -56,6 +57,32 @@ function rotasDeIa({ db, config, fetchImpl }) {
 
     const { respostas, indice, consultas } = repositorio.montarCaso(db, caso);
     res.json({ respostas, indice, consultas, documento_truncado: sugestao.truncado });
+  });
+
+  /* Verificação automática do checklist de publicidade sobre o texto do anúncio salvo no caso. */
+  rotas.post('/casos/:id/anuncio/ia', limiteDeIa, async (req, res) => {
+    const caso = carregarCaso(db, req.usuario, lerId(req.params.id));
+    const { substituir } = validar(esquemas.consultaIa, req.body);
+    if (!config.ia.chave) { throw new ErroHttp(503, 'A verificação com IA não está configurada neste servidor.'); }
+    if (!caso.anuncio_texto.trim()) { throw invalido('Transcreva ou descreva o anúncio antes de pedir a verificação.'); }
+    const temRespostaDoGrupo = repositorio.lerAnaliseDoAnuncio(caso).some((ponto) => ponto.origem === 'grupo' && ponto.resposta !== null);
+    if (temRespostaDoGrupo && !substituir) {
+      throw new ErroHttp(409, 'O checklist já tem respostas do grupo.', { codigo: 'resposta_do_grupo' });
+    }
+
+    const verificacao = await verificarAnuncio({ config: config.ia, fetchImpl, textoDoAnuncio: caso.anuncio_texto });
+    /* A conferência do trecho é feita por código contra o texto do anúncio, nunca pelo modelo. */
+    const pontos = repositorio.conferirPontosDoAnuncio(verificacao.pontos.map((ponto) => ({ ...ponto, origem: 'ia' })), caso.anuncio_texto);
+    emTransacao(db, () => {
+      db.prepare("UPDATE casos SET anuncio_analise = ?, atualizado_em = datetime('now') WHERE id = ?").run(JSON.stringify(pontos), caso.id);
+      db.prepare(`
+        INSERT INTO consultas_ia (caso_id, dimensao, pergunta_id, usuario_id, ferramenta, modelo, prompt, resposta)
+        VALUES (?, 0, 'Publicidade', ?, ?, ?, ?, ?)
+      `).run(caso.id, req.usuario.id, config.ia.ferramenta, verificacao.modelo, verificacao.pergunta, verificacao.respostaBruta);
+    });
+
+    const atualizado = repositorio.montarCaso(db, db.prepare('SELECT * FROM casos WHERE id = ?').get(caso.id));
+    res.json({ caso: atualizado.caso, consultas: atualizado.consultas });
   });
 
   return rotas;

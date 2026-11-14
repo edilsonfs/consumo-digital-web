@@ -134,6 +134,10 @@ const MIGRACOES = [
     criado_em TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX transacoes_grupo ON transacoes(grupo_id);
+  `,
+  `
+  ALTER TABLE casos ADD COLUMN anuncio_texto TEXT NOT NULL DEFAULT '';
+  ALTER TABLE casos ADD COLUMN anuncio_analise TEXT NOT NULL DEFAULT '[]';
   `
 ];
 

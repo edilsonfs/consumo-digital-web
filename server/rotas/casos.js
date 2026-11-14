@@ -8,7 +8,7 @@ const { invalido, naoEncontrado, proibido } = require('../erros');
 const { esquemas, validar, lerId } = require('../validacao');
 
 const CAMPOS_DO_DIAGNOSTICO = ['plataforma', 'documento_url', 'link_arquivado', 'data_acesso', 'texto_fonte', 'ferramenta_ia', 'versao_modelo', 'data_criacao', 'prompt_usado'];
-const CAMPOS_DO_CASO = ['titulo', 'tipo', 'descricao_curta'];
+const CAMPOS_DO_CASO = ['titulo', 'tipo', 'descricao_curta', 'anuncio_texto'];
 const LISTAS_DO_CASO = ['provas', 'checklist_publicidade'];
 
 /** Monta "campo = ?, campo = ?" só com os campos permitidos que vieram na requisição. */
@@ -53,8 +53,13 @@ function rotasDeCasos({ db }) {
     const dados = validar(esquemas.casoEdicao, req.body);
     const textos = montarAtualizacao(dados, CAMPOS_DO_CASO);
     const listas = montarAtualizacao(dados, LISTAS_DO_CASO, JSON.stringify);
-    const sql = [...textos.sql, ...listas.sql, "atualizado_em = datetime('now')"].join(', ');
-    db.prepare(`UPDATE casos SET ${sql} WHERE id = ?`).run(...textos.valores, ...listas.valores, caso.id);
+    /* O trecho de cada ponto do checklist é conferido por código contra o texto do anúncio (o novo, se veio). */
+    const mexeNoAnuncio = dados.anuncio_texto !== undefined || dados.anuncio_analise !== undefined;
+    const analise = mexeNoAnuncio
+      ? repositorio.conferirPontosDoAnuncio(dados.anuncio_analise ?? repositorio.lerAnaliseDoAnuncio(caso), dados.anuncio_texto ?? caso.anuncio_texto)
+      : null;
+    const sql = [...textos.sql, ...listas.sql, ...(analise ? ['anuncio_analise = ?'] : []), "atualizado_em = datetime('now')"].join(', ');
+    db.prepare(`UPDATE casos SET ${sql} WHERE id = ?`).run(...textos.valores, ...listas.valores, ...(analise ? [JSON.stringify(analise)] : []), caso.id);
     res.json({ caso: repositorio.formatarCaso(db.prepare('SELECT * FROM casos WHERE id = ?').get(caso.id)) });
   });
 

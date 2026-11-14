@@ -5,6 +5,8 @@ const { ErroHttp } = require('../erros');
 
 const TEMPO_LIMITE_MS = 90000;
 const TOKENS_MAXIMOS_DA_RESPOSTA = 1500;
+const TENTATIVAS_DE_CONEXAO = 3;
+const ESPERA_ENTRE_TENTATIVAS_MS = 600;
 /* Folga para o documento caber no contexto do modelo junto com as instruções e a resposta. */
 const CARACTERES_MAXIMOS_DO_DOCUMENTO = 120000;
 
@@ -40,38 +42,54 @@ function montarMensagens(dimensao, textoFonte) {
   };
 }
 
-function interpretarResposta(conteudo) {
+/** Lê o JSON devolvido pelo modelo e o valida com o esquema; resposta fora do formato vira erro 502. */
+function interpretarResposta(conteudo, esquema = formatoDaResposta) {
   let dados;
   try { dados = JSON.parse(conteudo); } catch { throw new ErroHttp(502, 'A IA devolveu uma resposta fora do formato esperado. Tente de novo.'); }
-  const resultado = formatoDaResposta.safeParse(dados);
+  const resultado = esquema.safeParse(dados);
   if (!resultado.success) { throw new ErroHttp(502, 'A IA devolveu uma resposta incompleta. Tente de novo.'); }
   return resultado.data;
 }
 
+const esperar = (milissegundos) => new Promise((resolver) => { setTimeout(resolver, milissegundos); });
+
 /**
- * Envia uma pergunta do protocolo ao DeepSeek (API compatível com a da OpenAI) e devolve a
- * resposta já validada. A chave fica só no servidor e nunca aparece em registro ou mensagem de erro.
+ * Falha de conexão costuma ser passageira: tenta de novo antes de desistir. Tempo esgotado não
+ * é repetido, para a pessoa não esperar o dobro. O registro traz a causa, nunca a chave.
  */
-async function consultarDeepSeek({ config, fetchImpl, dimensao, textoFonte }) {
-  const { mensagens, pergunta, truncado } = montarMensagens(dimensao, textoFonte);
-  let resposta;
-  try {
-    resposta = await fetchImpl(`${config.urlBase}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.chave}` },
-      body: JSON.stringify({
-        model: config.modelo,
-        messages: mensagens,
-        temperature: 0,
-        max_tokens: TOKENS_MAXIMOS_DA_RESPOSTA,
-        response_format: { type: 'json_object' }
-      }),
-      signal: AbortSignal.timeout(TEMPO_LIMITE_MS)
-    });
-  } catch (erro) {
-    console.error('[ia] falha de rede ao consultar o DeepSeek:', erro.name);
-    throw new ErroHttp(502, 'Não foi possível falar com o serviço de IA. Tente de novo em instantes.');
+async function conectar(pedir) {
+  for (let tentativa = 1; tentativa <= TENTATIVAS_DE_CONEXAO; tentativa += 1) {
+    try {
+      return await pedir();
+    } catch (erro) {
+      const causa = (erro.cause && (erro.cause.code || erro.cause.message)) || erro.message;
+      console.error(`[ia] falha de rede ao consultar o DeepSeek (tentativa ${tentativa} de ${TENTATIVAS_DE_CONEXAO}):`, erro.name, causa);
+      if (erro.name === 'TimeoutError' || tentativa === TENTATIVAS_DE_CONEXAO) { break; }
+      await esperar(ESPERA_ENTRE_TENTATIVAS_MS);
+    }
   }
+  throw new ErroHttp(502, 'Não foi possível falar com o serviço de IA. Tente de novo em instantes.');
+}
+
+/**
+ * Envia as mensagens ao DeepSeek (API compatível com a da OpenAI) pedindo resposta em JSON.
+ * Devolve o texto da resposta e o modelo que respondeu. A chave fica só no servidor e nunca
+ * aparece em registro ou mensagem de erro.
+ */
+async function pedirJsonAoModelo({ config, fetchImpl, mensagens, tokensMaximos = TOKENS_MAXIMOS_DA_RESPOSTA }) {
+  const corpoDoPedido = JSON.stringify({
+    model: config.modelo,
+    messages: mensagens,
+    temperature: 0,
+    max_tokens: tokensMaximos,
+    response_format: { type: 'json_object' }
+  });
+  const resposta = await conectar(() => fetchImpl(`${config.urlBase}/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.chave}` },
+    body: corpoDoPedido,
+    signal: AbortSignal.timeout(TEMPO_LIMITE_MS)
+  }));
   if (!resposta.ok) {
     console.error('[ia] o DeepSeek respondeu com status', resposta.status);
     const mensagem = resposta.status === 401 || resposta.status === 402
@@ -82,13 +100,14 @@ async function consultarDeepSeek({ config, fetchImpl, dimensao, textoFonte }) {
   const corpo = await resposta.json();
   const conteudo = corpo && corpo.choices && corpo.choices[0] && corpo.choices[0].message && corpo.choices[0].message.content;
   if (typeof conteudo !== 'string') { throw new ErroHttp(502, 'A IA devolveu uma resposta vazia. Tente de novo.'); }
-  return {
-    ...interpretarResposta(conteudo),
-    modelo: typeof corpo.model === 'string' ? corpo.model : config.modelo,
-    pergunta,
-    respostaBruta: conteudo,
-    truncado
-  };
+  return { conteudo, modelo: typeof corpo.model === 'string' ? corpo.model : config.modelo };
 }
 
-module.exports = { consultarDeepSeek, montarMensagens, interpretarResposta, CARACTERES_MAXIMOS_DO_DOCUMENTO };
+/** Envia uma pergunta do protocolo de opacidade e devolve a resposta já validada. */
+async function consultarDeepSeek({ config, fetchImpl, dimensao, textoFonte }) {
+  const { mensagens, pergunta, truncado } = montarMensagens(dimensao, textoFonte);
+  const { conteudo, modelo } = await pedirJsonAoModelo({ config, fetchImpl, mensagens });
+  return { ...interpretarResposta(conteudo), modelo, pergunta, respostaBruta: conteudo, truncado };
+}
+
+module.exports = { consultarDeepSeek, pedirJsonAoModelo, montarMensagens, interpretarResposta, CARACTERES_MAXIMOS_DO_DOCUMENTO };

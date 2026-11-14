@@ -300,3 +300,11 @@ dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 
 /* Transição entre telas (View Transitions API): curta, e desligada com movimento reduzido. */
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 180ms; }
+
+/* ---------- checklist de publicidade: um bloco por ponto ---------- */
+.pontos-do-checklist { display: flex; flex-direction: column; gap: var(--espaco-2); }
+.item-do-checklist { background: var(--superficie-2); border-radius: var(--raio); padding: var(--espaco-4); display: flex; flex-direction: column; gap: var(--espaco-3); font-size: var(--texto-apoio); }
+.item-do-checklist-texto { flex: 1 1 280px; }
+.item-do-checklist .segmento { background: var(--superficie); }
+.item-do-checklist .segmento[aria-pressed="true"] { background: var(--destaque-preenchido); }
+.item-do-checklist blockquote { background: var(--superficie); }

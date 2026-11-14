@@ -58,13 +58,18 @@ var DATA = {
     influenciador: { label: 'Influenciador', titulo: 'Influenciador', status: 'Em construção', fundamento: 'A divulgação com fim comercial deve ser identificável fácil e imediatamente (CDC, art. 36). Quem participa da veiculação do ilícito e aufere proveito pode responder em solidariedade (art. 7º, parágrafo único).', ressalva: 'Discute-se se o influenciador é fornecedor equiparado ou responde por sua participação. Conferir o guia do CONAR sobre publicidade por influenciadores e os precedentes recentes.' },
     plataforma: { label: 'Plataforma', titulo: 'Plataforma', status: 'Parcialmente definido', fundamento: 'O Tema 987 (item 4, redação dos embargos de 17/06/2026) presume, de forma relativa, a culpa do provedor por conteúdo ilícito em anúncios e impulsionamentos pagos. A presunção cai se ele provar atuação diligente em tempo razoável.', ressalva: 'A tese afirma que não haverá responsabilidade objetiva. Os efeitos valem a partir de 5/8/2025: confira a data do fato.' }
   },
+  /*
+   * Pontos de verificação do anúncio. Cada ponto é uma afirmação que pode ser verdadeira ("sim"), falsa ("nao")
+   * ou sem elementos para dizer ("indeterminado"). Em ponto de conformidade, "sim" quer dizer que o anúncio atende
+   * à regra; em ponto de fato, "sim" só registra a circunstância, e `efeito` diz o que ela acarreta.
+   */
   checkPub: [
-    { ref: 'CDC, art. 36', text: 'A publicidade era identificável como tal (marca “publi”, aviso claro)?' },
-    { ref: 'CDC, art. 37', text: 'O conteúdo prometia algo falso, enganoso ou abusivo?' },
-    { ref: 'CDC, art. 38', text: 'O patrocinador consegue provar a veracidade da informação?' },
-    { ref: 'CDC, art. 30', text: 'A oferta era precisa o bastante para vincular o fornecedor (preço, condição, prazo)?' },
-    { ref: 'Tema 987, item 4', text: 'O anúncio foi pago ou impulsionado pela plataforma?' },
-    { ref: 'ECA Digital (Lei 15.211/2025)', text: 'O público atingido incluía crianças ou adolescentes? [conferir a norma]' }
+    { ref: 'CDC, art. 36', tipo: 'conformidade', text: 'A publicidade é identificável como tal, de forma fácil e imediata (marca “publi”, aviso claro de parceria paga).' },
+    { ref: 'CDC, art. 37', tipo: 'conformidade', text: 'O conteúdo não promete nada falso, enganoso ou abusivo (resultado garantido, omissão de dado essencial, exploração de medo ou de vulnerabilidade).' },
+    { ref: 'CDC, art. 38', tipo: 'conformidade', text: 'As afirmações vêm com dados ou fontes que permitem comprovar sua veracidade.' },
+    { ref: 'CDC, art. 30', tipo: 'conformidade', text: 'A oferta é precisa quanto a preço, condição e prazo, o que vincula o fornecedor.' },
+    { ref: 'Tema 987, item 4', tipo: 'fato', text: 'O anúncio foi pago ou impulsionado na plataforma.', efeito: 'Se sim, presume-se de forma relativa a culpa do provedor por conteúdo ilícito.' },
+    { ref: 'ECA Digital (Lei 15.211/2025)', tipo: 'fato', text: 'O público atingido inclui crianças ou adolescentes.', efeito: 'Se sim, valem as regras de proteção de crianças e adolescentes. Conferir a norma.' }
   ],
   cenDados: {
     preco: { label: 'Preço personalizado', texto: 'O valor ou a oferta mudam conforme seu perfil, aparelho ou histórico. Você pode pedir os critérios usados e a correção de dados incorretos.', base: 'LGPD, arts. 6º, IX (não discriminação ilícita ou abusiva), 9º (acesso facilitado às informações) e 18; CDC, art. 6º, III (informação adequada e clara) e art. 37, § 2º (publicidade abusiva).', pedido: 'o tratamento de dados usado para definir o preço ou a oferta que me foi apresentada' },

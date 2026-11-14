@@ -34,7 +34,8 @@ Rotas de tela: `triagem`, `diagnostico`, `comparacao`, `parecer`, `agente`, `pub
 grupos(id, nome, turma, divergencia_destacada, higiene, passos_ativos, criado_em)
 usuarios(id, nome, email, senha_hash, papel[aluno|professor|admin], grupo_id, deve_trocar_senha, ativo, criado_em)
 sessoes(token_hash, usuario_id, csrf, expira_em)
-casos(id, grupo_id, titulo, tipo, descricao_curta, provas, checklist_publicidade, criado_em, atualizado_em)
+casos(id, grupo_id, titulo, tipo, descricao_curta, provas, checklist_publicidade,
+      anuncio_texto, anuncio_analise, criado_em, atualizado_em)
 diagnosticos(caso_id, plataforma, documento_url, link_arquivado, data_acesso, texto_fonte,
              ferramenta_ia, versao_modelo, data_criacao, prompt_usado, atualizado_em)
 respostas(caso_id, dimensao[1..14], pergunta_id, nota[0..3], trecho_literal,
@@ -50,6 +51,8 @@ Observações:
 - Um caso tem um diagnóstico e um parecer. Apagar o caso apaga os dois, as respostas e as consultas.
 - `transacoes` guarda **apenas endereços públicos e hash**. O servidor rejeita valor com formato de frase de recuperação (12 ou mais palavras em sequência) ou de chave privada (64 hexadecimais ou WIF). No campo `hash` o formato de 64 hexadecimais é aceito, porque é o do próprio código da transação.
 - Listas de itens marcados (provas, checklists) são vetores de índices em JSON, validados na entrada.
+- `anuncio_analise` guarda um ponto por item do checklist de publicidade: `{item, resposta[sim|nao|indeterminado|null], justificativa, trecho, conferido, origem[grupo|ia]}`. O trecho é conferido por código contra `anuncio_texto`. `checklist_publicidade` é o formato antigo (só itens marcados), lido como resposta "sim" do grupo.
+- A verificação do anúncio é registrada em `consultas_ia` com `dimensao = 0` e `pergunta_id = 'Publicidade'`.
 - Mudanças de esquema entram como nova posição em `MIGRACOES`; a versão fica em `PRAGMA user_version`.
 - Para dados pessoais (nome e e-mail das contas), aplicar minimização e prazo de retenção (LGPD, arts. 6º e 16).
 
@@ -67,6 +70,7 @@ Toda rota fora de `/api/auth` exige sessão. Toda alteração exige `Content-Typ
 | `PUT /api/casos/:id/respostas/:dimensao` | Grava a resposta de uma dimensão e devolve conferência e índice |
 | `POST /api/casos/:id/ia/:dimensao` | Consulta a IA para uma dimensão, grava a sugestão e registra a consulta |
 | `POST /api/casos/:id/arquivo` | Busca a cópia arquivada do link original na Wayback Machine e preenche link arquivado, data de acesso e texto-fonte |
+| `POST /api/casos/:id/anuncio/ia` | Verifica com a IA os pontos do checklist de publicidade sobre o texto do anúncio salvo no caso |
 | `PUT /api/casos/:id/parecer` | Formato, texto, autoavaliação, validação humana e declaração de uso de IA |
 | `GET /api/grupos/:id/dados` | Comparação, transações e anotações do grupo |
 | `PUT /api/grupos/:id/comparacao` · `PUT /api/grupos/:id/anotacoes` | Anexo I e checklists do grupo |

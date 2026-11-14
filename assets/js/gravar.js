@@ -19,8 +19,20 @@ function aplicarConferencia(respostasDoServidor, indice) {
 }
 
 export function gravarCaso() {
-  const { id, titulo, tipo, descricao_curta, provas, checklist_publicidade } = estado.pacote.caso;
-  return api('PATCH', `/casos/${id}`, { titulo, tipo, descricao_curta, provas, checklist_publicidade });
+  const { id, titulo, tipo, descricao_curta, provas } = estado.pacote.caso;
+  return api('PATCH', `/casos/${id}`, { titulo, tipo, descricao_curta, provas });
+}
+
+/** Grava o texto do anúncio e o checklist de publicidade; o servidor devolve a conferência dos trechos. */
+export async function gravarAnuncio() {
+  const { id, anuncio_texto, anuncio_analise } = estado.pacote.caso;
+  const pontos = anuncio_analise.map(({ item, resposta, justificativa, trecho, origem }) => ({ item, resposta, justificativa, trecho, origem }));
+  const { caso } = await api('PATCH', `/casos/${id}`, { anuncio_texto, anuncio_analise: pontos });
+  if (!estado.pacote || estado.pacote.caso.id !== id) { return; }
+  const conferencia = new Map(caso.anuncio_analise.map((ponto) => [ponto.item, ponto.conferido]));
+  const atualizados = estado.pacote.caso.anuncio_analise.map((ponto) => ({ ...ponto, conferido: conferencia.has(ponto.item) ? conferencia.get(ponto.item) : ponto.conferido }));
+  estado.pacote = { ...estado.pacote, caso: { ...estado.pacote.caso, anuncio_analise: atualizados } };
+  pedirRegioes();
 }
 
 export async function gravarDiagnostico() {

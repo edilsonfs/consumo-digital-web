@@ -45,7 +45,7 @@ test('configuração não traz segredo padrão e liga o cookie seguro em produç
 test('migrações são aplicadas uma vez e o banco reabre sem erro', () => {
   const db = abrirBanco(':memory:');
 
-  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 1);
+  assert.equal(db.prepare('PRAGMA user_version').get().user_version, 2);
   assert.equal(db.prepare('PRAGMA foreign_keys').get().foreign_keys, 1);
   db.close();
 });

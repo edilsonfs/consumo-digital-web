@@ -13,6 +13,7 @@ const LIMITES = Object.freeze({
   trecho: 5000,
   textoFonte: 600000,
   parecer: 60000,
+  anuncio: 20000,
   senhaMaxima: 200,
   provedores: 6
 });
@@ -70,7 +71,15 @@ const esquemas = {
     tipo: z.enum(TIPOS_DE_CASO),
     descricao_curta: texto(LIMITES.textoCurto),
     provas: marcados(DATA.provas.length),
-    checklist_publicidade: marcados(DATA.checkPub.length)
+    checklist_publicidade: marcados(DATA.checkPub.length),
+    anuncio_texto: z.string().max(LIMITES.anuncio, 'O texto do anúncio é grande demais.'),
+    anuncio_analise: z.array(z.strictObject({
+      item: z.number().int().min(0).max(DATA.checkPub.length - 1),
+      resposta: z.enum(['sim', 'nao', 'indeterminado']).nullable(),
+      justificativa: texto(LIMITES.textoMedio),
+      trecho: texto(LIMITES.textoMedio),
+      origem: z.enum(['grupo', 'ia'])
+    })).max(DATA.checkPub.length).refine((pontos) => new Set(pontos.map((ponto) => ponto.item)).size === pontos.length, 'Há pontos repetidos no checklist.')
   }).partial(),
 
   diagnostico: z.strictObject({

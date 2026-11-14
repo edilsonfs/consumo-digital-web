@@ -20,6 +20,21 @@ function conferirResposta(dimensao, trecho, textoFonte) {
   return dimensao.descritiva ? null : conferirTrecho(trecho, textoFonte);
 }
 
+/**
+ * Pontos do checklist de publicidade. Casos anteriores à verificação automática só guardavam
+ * os itens marcados: eles aparecem como resposta "sim" dada pelo grupo.
+ */
+function lerAnaliseDoAnuncio(linha) {
+  const pontos = lerLista(linha.anuncio_analise);
+  if (pontos.length) { return pontos; }
+  return lerLista(linha.checklist_publicidade).map((item) => ({ item, resposta: 'sim', justificativa: '', trecho: '', conferido: null, origem: 'grupo' }));
+}
+
+/** Confere, por código, se o trecho citado em cada ponto está no texto do anúncio. */
+function conferirPontosDoAnuncio(pontos, textoDoAnuncio) {
+  return pontos.map((ponto) => ({ ...ponto, conferido: conferirTrecho(ponto.trecho, textoDoAnuncio) }));
+}
+
 function formatarCaso(linha) {
   return {
     id: linha.id,
@@ -29,6 +44,8 @@ function formatarCaso(linha) {
     descricao_curta: linha.descricao_curta,
     provas: lerLista(linha.provas),
     checklist_publicidade: lerLista(linha.checklist_publicidade),
+    anuncio_texto: linha.anuncio_texto,
+    anuncio_analise: lerAnaliseDoAnuncio(linha),
     criado_em: linha.criado_em,
     atualizado_em: linha.atualizado_em
   };
@@ -150,6 +167,8 @@ module.exports = {
   dimensaoPorNumero,
   conferirResposta,
   formatarCaso,
+  lerAnaliseDoAnuncio,
+  conferirPontosDoAnuncio,
   garantirRegistros,
   montarCaso,
   gravarResposta,

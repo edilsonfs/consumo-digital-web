@@ -8,6 +8,7 @@ function visaoInicial() {
   return {
     diag: { aberta: null, eixo: 'all' },
     analise: { consultando: {}, lote: null, falha: '', buscando: false, falhaDoArquivo: '', avisoDoArquivo: '' },
+    parecer: { redigindo: null, falha: '', concluida: false },
     comp: { soDivergentes: false },
     agente: { ator: 'agente', cenario: 'fora' },
     pub: { ator: 'plataforma' },

@@ -71,6 +71,7 @@ Toda rota fora de `/api/auth` exige sessão. Toda alteração exige `Content-Typ
 | `POST /api/casos/:id/ia/:dimensao` | Consulta a IA para uma dimensão, grava a sugestão e registra a consulta |
 | `POST /api/casos/:id/arquivo` | Busca a cópia arquivada do link original na Wayback Machine e preenche link arquivado, data de acesso e texto-fonte |
 | `POST /api/casos/:id/anuncio/ia` | Verifica com a IA os pontos do checklist de publicidade sobre o texto do anúncio salvo no caso |
+| `POST /api/casos/:id/parecer/ia/:secao` | Redige uma parte do parecer: `abertura` (título, objeto e metodologia, montados por código), `diagnostico`, `analise` ou `conclusao` (redigidas pela IA). Só devolve o texto; quem grava é a rota abaixo |
 | `PUT /api/casos/:id/parecer` | Formato, texto, autoavaliação, validação humana e declaração de uso de IA |
 | `GET /api/grupos/:id/dados` | Comparação, transações e anotações do grupo |
 | `PUT /api/grupos/:id/comparacao` · `PUT /api/grupos/:id/anotacoes` | Anexo I e checklists do grupo |

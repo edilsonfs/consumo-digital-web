@@ -2,7 +2,7 @@
 
 Interface para a skill **Consumo Digital Diagnóstico** (disciplina Relações de Consumo e Novas Tecnologias, PPGDI-UNICAP): triagem do caso, diagnóstico da opacidade de termos de uso, comparação de provedores de IA generativa, parecer e apêndice técnico.
 
-O trabalho segue uma trilha de cinco etapas ligadas (caso, termos de uso, análise, conferência, parecer), visível no topo das telas do caso, com o próximo passo indicado no fim de cada uma. Na triagem, o grupo informa o link dos termos, o sistema busca a cópia arquivada na Wayback Machine e a IA responde as 14 perguntas do protocolo. Na tela Publicidade, o grupo transcreve o anúncio e a IA verifica o checklist: quais pontos atendem ao CDC, quais não atendem e quais o texto não permite dizer.
+O trabalho segue uma trilha de cinco etapas ligadas (caso, termos de uso, análise, conferência, parecer), visível no topo das telas do caso, com o próximo passo indicado no fim de cada uma. Na triagem, o grupo informa o link dos termos, o sistema busca a cópia arquivada na Wayback Machine e a IA responde as 14 perguntas do protocolo. Na tela Publicidade, o grupo transcreve o anúncio e a IA verifica o checklist: quais pontos atendem ao CDC, quais não atendem e quais o texto não permite dizer. No parecer, um botão redige o texto completo: objeto e metodologia montados com os dados do caso, e diagnóstico da opacidade, análise crítica à luz do CDC e conclusão redigidos pela IA a partir das respostas salvas.
 
 A partir da v0.3 a aplicação tem **servidor e banco de dados**: o que cada grupo preenche fica salvo, o acesso é por conta e senha, e o diagnóstico pode receber sugestões de IA. A v0.2 era um site estático que perdia tudo ao recarregar.
 
@@ -49,7 +49,7 @@ Nenhum segredo vai para o repositório: `.env` está no `.gitignore`.
 
 ```bash
 npm run lint       # ESLint
-npm test           # 98 testes com cobertura (node:test)
+npm test           # 110 testes com cobertura (node:test)
 npm run verificar  # os dois
 ```
 

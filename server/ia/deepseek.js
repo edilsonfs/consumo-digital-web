@@ -76,7 +76,7 @@ async function conectar(pedir) {
  * Devolve o texto da resposta e o modelo que respondeu. A chave fica só no servidor e nunca
  * aparece em registro ou mensagem de erro.
  */
-async function pedirJsonAoModelo({ config, fetchImpl, mensagens, tokensMaximos = TOKENS_MAXIMOS_DA_RESPOSTA }) {
+async function pedirJsonAoModelo({ config, fetchImpl, mensagens, tokensMaximos = TOKENS_MAXIMOS_DA_RESPOSTA, tempoLimiteMs = TEMPO_LIMITE_MS }) {
   const corpoDoPedido = JSON.stringify({
     model: config.modelo,
     messages: mensagens,
@@ -88,7 +88,7 @@ async function pedirJsonAoModelo({ config, fetchImpl, mensagens, tokensMaximos =
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.chave}` },
     body: corpoDoPedido,
-    signal: AbortSignal.timeout(TEMPO_LIMITE_MS)
+    signal: AbortSignal.timeout(tempoLimiteMs)
   }));
   if (!resposta.ok) {
     console.error('[ia] o DeepSeek respondeu com status', resposta.status);

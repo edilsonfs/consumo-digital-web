@@ -1,11 +1,13 @@
 /* Parecer: formato, texto do grupo, apêndice técnico e autoavaliação pela rubrica. */
+import { api } from '../api.js';
 import { estado, alterarPacote, ehIntegrante, indiceEmTela } from '../estado.js';
 import { baixarTexto, dataDeHoje } from '../exportar.js';
 import { proximoPasso, trilha } from '../fluxo.js';
 import { gravarParecer } from '../gravar.js';
 import { html, atributo } from '../html.js';
-import { agendarSalvamento, salvarAgora } from '../salvar.js';
-import { cabecalho, campo, emblema, formatarData, formatarDecimal, semCaso } from '../ui.js';
+import { pedirRedesenho } from '../painel.js';
+import { agendarSalvamento, descarregarAgendados, salvarAgora } from '../salvar.js';
+import { cabecalho, campo, confirmar, emblema, formatarData, formatarDecimal, semCaso } from '../ui.js';
 
 const DATA = window.DATA;
 const CARACTERES_POR_PAGINA = 3000;
@@ -29,6 +31,39 @@ function situacaoDoApendice() {
     parecer().validado_humano,
     parecer().declaracao_ia
   ];
+}
+
+const PARTES_DO_PARECER = [
+  { id: 'abertura', nome: 'objeto e metodologia' },
+  { id: 'diagnostico', nome: 'diagnóstico da opacidade' },
+  { id: 'analise', nome: 'análise crítica à luz do CDC' },
+  { id: 'conclusao', nome: 'conclusão e encaminhamento' }
+];
+const visao = () => estado.visao.parecer;
+
+function regiaoDaRedacao() {
+  const { redigindo, falha, concluida } = visao();
+  const indice = indiceEmTela();
+  if (redigindo) {
+    return html`
+      <div class="pilha junta" role="status">
+        <span class="apoio">Redigindo o parecer: parte ${redigindo.feitas + 1} de ${redigindo.total} (${redigindo.nome}). Cada parte leva até um minuto.</span>
+        <progress max="${redigindo.total}" value="${redigindo.feitas}"></progress>
+      </div>`;
+  }
+  const comIa = estado.ia.disponivel;
+  return html`
+    ${falha ? html`<p class="aviso erro" role="alert">${falha}</p>` : ''}
+    ${concluida ? html`<p class="aviso info" role="status"><strong>Minuta redigida.</strong> Revise cada parágrafo, confira os trechos no documento original e só então marque a validação humana.</p>` : ''}
+    <div class="linha-acoes">
+      <button type="button" class="botao primario" data-a="pr-redigir"${atributo(!indice.completo, 'disabled')}>${comIa ? 'Redigir o parecer completo com IA' : 'Montar objeto e metodologia'}</button>
+      ${parecer().texto.trim() ? '' : html`<button type="button" class="botao" data-a="pr-modelo">Inserir só a estrutura</button>`}
+    </div>
+    <p class="legenda">${indice.completo
+      ? (comIa
+        ? `Monta o objeto e a metodologia com os dados do caso e pede à IA (${estado.ia.ferramenta}) a redação do diagnóstico da opacidade, da análise crítica à luz do CDC e da conclusão, só com as respostas salvas no diagnóstico. As respostas são enviadas ao serviço de IA. O resultado é uma minuta: a revisão e a conclusão são do grupo.`
+        : 'Monta o objeto e a metodologia com os dados do caso. A IA está desativada neste servidor: as demais seções ficam para o grupo redigir.')
+      : `Conclua a análise de opacidade para liberar a redação: ${indice.respondidasBase} de ${indice.totalBase} dimensões da régua base têm nota.`}</p>`;
 }
 
 function regiaoDasPaginas() {
@@ -82,10 +117,9 @@ function render() {
           <p class="apoio">Tom da conclusão: <strong>${formato.tom}</strong>.</p>
         </section>
         <section class="cartao">
-          <div class="cartao-topo"><h2>Texto do parecer</h2>
-            ${parecer().texto.trim() ? '' : html`<button type="button" class="botao" data-a="pr-modelo">Inserir a estrutura</button>`}
-          </div>
-          ${campo('pr-texto', 'Redação do grupo', parecer().texto, 'pr-texto', { linhas: 14, classe: 'alto', maximo: 60000, dica: 'Salvo automaticamente. Cite cada cláusula com o trecho literal conferido, o link original e o link arquivado.' })}
+          <div class="pilha junta"><h2>Texto do parecer</h2><p class="apoio">Redação completa: objeto, metodologia, diagnóstico da opacidade, análise crítica à luz do CDC e conclusão.</p></div>
+          <div class="pilha" data-regiao="redacao">${regiaoDaRedacao()}</div>
+          ${campo('pr-texto', 'Redação do grupo', parecer().texto, 'pr-texto', { linhas: 18, classe: 'alto', maximo: 60000, dica: 'Salvo automaticamente. Cite cada cláusula com o trecho literal conferido, o link original e o link arquivado.' })}
           <div class="pilha junta" data-regiao="paginas">${regiaoDasPaginas()}</div>
         </section>
         <section class="cartao">
@@ -140,6 +174,41 @@ function estruturaInicial() {
   ].join('\n');
 }
 
+const SECOES_PARA_O_GRUPO = ['3. Diagnóstico da opacidade', '[Achados por eixo, cada um com o trecho literal conferido.]', '4. Análise crítica à luz do Código de Defesa do Consumidor', '[Núcleo do trabalho.]', '5. Conclusão e encaminhamento', '[Síntese e encaminhamento.]'].join('\n\n');
+
+/** Redige o parecer parte a parte e grava o texto completo. Texto existente só é trocado com confirmação. */
+async function redigirParecer() {
+  if (parecer().texto.trim()) {
+    const confirmado = await confirmar({
+      titulo: 'Substituir o texto do parecer?',
+      texto: 'O parecer já tem texto. A nova redação vai tomar o lugar de tudo o que está escrito.',
+      rotuloConfirmar: 'Substituir pela nova redação'
+    });
+    if (!confirmado) { return; }
+  }
+  const casoId = estado.pacote.caso.id;
+  const partes = estado.ia.disponivel ? PARTES_DO_PARECER : PARTES_DO_PARECER.slice(0, 1);
+  const textos = [];
+  try {
+    await descarregarAgendados();
+    for (const [i, parte] of partes.entries()) {
+      estado.visao.parecer = { redigindo: { feitas: i, total: partes.length, nome: parte.nome }, falha: '', concluida: false };
+      pedirRedesenho();
+      const { texto, consultas } = await api('POST', `/casos/${casoId}/parecer/ia/${parte.id}`);
+      if (!estado.pacote || estado.pacote.caso.id !== casoId) { return; }
+      textos.push(texto);
+      estado.pacote = { ...estado.pacote, consultas };
+    }
+    if (!estado.ia.disponivel) { textos.push(SECOES_PARA_O_GRUPO); }
+    alterarPacote('parecer', { texto: textos.join('\n\n') });
+    estado.visao.parecer = { redigindo: null, falha: '', concluida: true };
+    pedirRedesenho();
+    await salvarAgora('parecer-texto', gravarParecer(['texto']));
+  } catch (erro) {
+    estado.visao.parecer = { redigindo: null, falha: `${erro.message} O texto anterior do parecer foi mantido.`, concluida: false };
+  }
+}
+
 function exportarApendice() {
   const { diagnostico, consultas, respostas, caso } = estado.pacote;
   const situacao = situacaoDoApendice();
@@ -166,7 +235,7 @@ function exportarApendice() {
 export const tela = {
   titulo: 'Parecer',
   render,
-  regioes: (nome) => (nome === 'paginas' ? regiaoDasPaginas() : null),
+  regioes: (nome) => (nome === 'paginas' ? regiaoDasPaginas() : nome === 'redacao' ? regiaoDaRedacao() : null),
   acoes: {
     'pr-formato': (formato) => { alterarPacote('parecer', { formato }); salvarAgora('parecer', gravarParecer(['formato'])); },
     'pr-modelo': () => { alterarPacote('parecer', { texto: estruturaInicial() }); salvarAgora('parecer-texto', gravarParecer(['texto'])); },
@@ -176,6 +245,7 @@ export const tela = {
       alterarPacote('parecer', { notas });
       agendarSalvamento('parecer-notas', gravarParecer(['notas']));
     },
+    'pr-redigir': redigirParecer,
     'pr-exportar': exportarApendice
   },
   mudancas: {

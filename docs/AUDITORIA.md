@@ -32,7 +32,7 @@ Veredito pelo critério do ECC: **bloqueado para receber persistência** até re
 
 | # | Sev. | Achado | Onde | Situação na v0.3 |
 |---|---|---|---|---|
-| Q1 | ALTO | Nenhum teste automatizado, lint ou integração contínua. As regras de domínio (índice, média ponderada, conferência) não tinham verificação. | projeto inteiro | Resolvido. 98 testes (`node:test`), 98% de linhas cobertas no servidor e no domínio, ESLint. Modelo de GitHub Actions em `docs/ci-github-actions.yml`, ainda não ativado. |
+| Q1 | ALTO | Nenhum teste automatizado, lint ou integração contínua. As regras de domínio (índice, média ponderada, conferência) não tinham verificação. | projeto inteiro | Resolvido. 110 testes (`node:test`), 98% de linhas cobertas no servidor e no domínio, ESLint. Modelo de GitHub Actions em `docs/ci-github-actions.yml`, ainda não ativado. |
 | Q2 | MÉDIO | Arquivo único com 30 linhas acima de 300 caracteres (a maior com 1.000); cada tela é uma expressão só. Difícil de ler, revisar e comparar em diff. | `assets/app.js` | Resolvido. Um módulo por tela, nenhum arquivo acima de 300 linhas. |
 | Q3 | MÉDIO | Nomes de uma letra para as estruturas centrais (`S`, `D`, `V`, `ACT`, `EXP`). | `assets/app.js:3-16, 230-249` | Resolvido. Nomes descritivos em português. |
 | Q4 | MÉDIO | Estado global alterado no lugar (`S.x = ...`, `toggle`). | `assets/app.js:228-248` | Melhorado. Dados do grupo são trocados por cópias (`alterarPacote`, `alterarResposta`); só o estado de visualização é alterado no lugar. |
@@ -62,7 +62,8 @@ Contraste medido com a fórmula de luminância relativa da WCAG sobre os valores
 | Verificação | Resultado |
 |---|---|
 | `npm run lint` (ESLint) | sem erros nem avisos |
-| `npm test` | 98 testes, 0 falhas; cobertura de linhas 98,4%, de ramos 87,7% |
+| `npm test` | 110 testes, 0 falhas; cobertura de linhas 98,3%, de ramos 86,5% |
+| Parecer completo | exemplo fictício → objeto e metodologia montados por código, três seções redigidas pelo DeepSeek em cerca de 20 s, 4,3 a 4,7 páginas, trecho não conferido ressalvado, texto mantido após recarregar |
 | Checklist de publicidade | anúncio fictício → 6 pontos respondidos pelo DeepSeek (3 não atendem, 1 atende, 2 fatos), trechos conferidos no texto do anúncio, correção pelo grupo mantida após recarregar |
 | Fluxo da triagem | link real de termos → cópia arquivada pela Wayback Machine → 14 perguntas respondidas pelo DeepSeek, todos os trechos conferidos → trilha leva ao parecer |
 | Fluxo no navegador (Chromium, via Playwright) | entrada, troca da senha inicial, criação de grupo e conta, caso com exemplo, as 9 telas, sem erro de página |
@@ -82,4 +83,5 @@ Não verificado: construção da imagem Docker nesta máquina (o Docker Desktop 
 - **Limite de requisições em memória**: serve a um processo só. Com mais de uma réplica, trocar por um armazenamento compartilhado.
 - **IA**: o texto do documento é enviado ao DeepSeek (servidores fora do Brasil). Documentos acima de 120 mil caracteres são analisados só no início, e a tela avisa. A nota sugerida é ponto de partida; a conclusão é do grupo.
 - **Sem recuperação de senha por e-mail**: quem esquece a senha pede outra ao professor.
+- **Parecer redigido pela IA é minuta**: a IA recebe só as respostas salvas e é instruída a citar apenas os dispositivos do parâmetro legal de cada dimensão, mas pode errar na argumentação. O grupo revisa antes de marcar a validação humana. O tamanho varia a cada geração e pode passar de 5 páginas em documentos com muitos achados.
 - **Parecer em Word ou PDF** e **política de privacidade formal** continuam em `TAREFAS.md`.

@@ -7,6 +7,7 @@ const { emTransacao } = require('../db');
 const { ErroHttp, invalido, naoEncontrado } = require('../erros');
 const { verificarAnuncio } = require('../ia/anuncio');
 const { consultarDeepSeek } = require('../ia/deepseek');
+const { montarAbertura, redigirSecao, SECOES_DE_IA } = require('../ia/parecer');
 const { limitarRequisicoes } = require('../seguranca');
 const { esquemas, validar, lerId } = require('../validacao');
 
@@ -83,6 +84,31 @@ function rotasDeIa({ db, config, fetchImpl }) {
 
     const atualizado = repositorio.montarCaso(db, db.prepare('SELECT * FROM casos WHERE id = ?').get(caso.id));
     res.json({ caso: atualizado.caso, consultas: atualizado.consultas });
+  });
+
+  /*
+   * Redação do parecer, seção a seção. "abertura" (título, objeto e metodologia) é montada por
+   * código com os fatos do caso; as demais são redigidas pela IA a partir das respostas salvas.
+   * A rota só devolve o texto: quem grava o parecer é o grupo, pela rota própria.
+   */
+  rotas.post('/casos/:id/parecer/ia/:secao', limiteDeIa, async (req, res) => {
+    const caso = carregarCaso(db, req.usuario, lerId(req.params.id));
+    const { secao } = req.params;
+    if (secao !== 'abertura' && !SECOES_DE_IA.includes(secao)) { throw naoEncontrado('Seção não encontrada.'); }
+    const pacote = repositorio.montarCaso(db, caso);
+    if (!pacote.indice.completo) {
+      throw invalido(`Conclua a análise de opacidade antes de redigir o parecer: ${pacote.indice.respondidasBase} de ${pacote.indice.totalBase} dimensões da régua base têm nota.`);
+    }
+    const comIa = Boolean(config.ia.chave);
+    if (secao === 'abertura') { return res.json({ texto: montarAbertura(pacote, { comIa, ferramenta: config.ia.ferramenta }), consultas: pacote.consultas }); }
+    if (!comIa) { throw new ErroHttp(503, 'A redação com IA não está configurada neste servidor.'); }
+
+    const redacao = await redigirSecao({ config: config.ia, fetchImpl, pacote, secao });
+    db.prepare(`
+      INSERT INTO consultas_ia (caso_id, dimensao, pergunta_id, usuario_id, ferramenta, modelo, prompt, resposta)
+      VALUES (?, 0, ?, ?, ?, ?, ?, ?)
+    `).run(caso.id, `Parecer: ${redacao.titulo}`, req.usuario.id, config.ia.ferramenta, redacao.modelo, redacao.pergunta, redacao.respostaBruta);
+    return res.json({ texto: redacao.texto, consultas: repositorio.montarCaso(db, caso).consultas });
   });
 
   return rotas;
